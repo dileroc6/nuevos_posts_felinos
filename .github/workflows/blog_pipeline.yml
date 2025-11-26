@@ -1,0 +1,37 @@
+name: Blog Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipeline/requirements.txt
+
+      - name: Execute pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WORDPRESS_USER: ${{ secrets.WORDPRESS_USER }}
+          WORDPRESS_PASSWORD: ${{ secrets.WORDPRESS_PASSWORD }}
+          WORDPRESS_JWT_TOKEN: ${{ secrets.WORDPRESS_JWT_TOKEN }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GOOGLE_MAIN_SHEET_NAME: ${{ secrets.GOOGLE_MAIN_SHEET_NAME }}
+          GOOGLE_INDEX_SHEET_NAME: ${{ secrets.GOOGLE_INDEX_SHEET_NAME }}
+          WORDPRESS_BASE_URL: ${{ secrets.WORDPRESS_BASE_URL }}
+          WORDPRESS_AUTH_METHOD: ${{ secrets.WORDPRESS_AUTH_METHOD }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+        run: |
+          python pipeline/main.py

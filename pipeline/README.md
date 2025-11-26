@@ -1,0 +1,65 @@
+# Pipeline de Publicación Automática
+
+Este proyecto automatiza la generación y publicación de artículos optimizados para SEO a partir de datos almacenados en Google Sheets. El contenido se genera con un GPT personalizado y se publica en WordPress mediante su API REST. El flujo completo se ejecuta manualmente desde GitHub Actions.
+
+## Requisitos previos
+
+- Hoja de cálculo en Google Sheets con:
+  - Hoja principal (por ejemplo `contenidos`) con columnas: `Título`, `Keyword Principal`, `Descripción para el GPT`, `Categoría`, `Slug` (o `URL`), `Ejecutar?`. Puedes añadir columnas opcionales como `Post_ID`, `URL` o `Extracto_200` si deseas conservar los resultados.
+  - Hoja `indice_contenido` solo para lectura, utilizada únicamente para detectar duplicados (puede usar columna `Slug` o `URL`; el pipeline extrae el slug desde la URL si es necesario).
+- Sitio WordPress con la API REST activa.
+- Cuenta en OpenAI con acceso al modelo personalizado.
+
+## Credenciales de Google Sheets
+
+1. Entra a [Google Cloud Console](https://console.cloud.google.com/), crea un proyecto y habilita la **Google Sheets API**.
+2. Crea una **Service Account** y descarga el archivo JSON de credenciales.
+3. Comparte la hoja de cálculo con el correo de la Service Account con permisos de edición.
+4. Copia el contenido completo del JSON y guárdalo en un secreto de GitHub llamado `GOOGLE_CREDENTIALS_JSON`.
+
+## Configuración de OpenAI
+
+1. Crea un secreto `OPENAI_API_KEY` con tu clave de OpenAI.
+2. Si usas un modelo personalizado, crea un secreto `OPENAI_MODEL` con el spec-key real (por ejemplo `gpt-5.1-mycustomspec`).
+
+## Autenticación en WordPress
+
+Tienes dos opciones:
+
+- **Application Password (recomendado)**
+  1. En WordPress, ve a `Usuarios > Perfil` y genera una Application Password.
+  2. Crea los secretos `WORDPRESS_USER` y `WORDPRESS_PASSWORD` en GitHub con tus credenciales.
+  3. Define el secreto `WORDPRESS_AUTH_METHOD` con el valor `application_password`.
+
+- **JWT Token**
+  1. Instala y configura un plugin de JWT en WordPress.
+  2. Genera un token y guárdalo en el secreto `WORDPRESS_JWT_TOKEN`.
+  3. Define el secreto `WORDPRESS_AUTH_METHOD` con el valor `jwt`.
+
+En ambos casos debes configurar el secreto `WORDPRESS_BASE_URL` con la URL base del sitio (por ejemplo `https://example.com`).
+
+## Variables adicionales
+
+Configura los siguientes secretos para conectar con tu Google Sheet:
+
+- `GOOGLE_SPREADSHEET_ID`: ID de la hoja (lo encuentras en la URL).
+- `GOOGLE_MAIN_SHEET_NAME`: nombre de la hoja principal (por defecto `contenidos`).
+- `GOOGLE_INDEX_SHEET_NAME`: nombre de la hoja índice (por defecto `indice_contenido`).
+
+## Ejecución manual del pipeline
+
+1. Sube este repositorio a GitHub.
+2. Configura todos los secretos mencionados en `Settings > Secrets and variables > Actions`.
+3. En GitHub, ve a la pestaña **Actions**, selecciona **Blog Pipeline** y pulsa **Run workflow**.
+4. El workflow ejecutará `python pipeline/main.py`, leerá las filas marcadas con `Ejecutar? = si`, validará duplicados con coincidencias exactas y comparación semántica vía OpenAI, generará el contenido, lo publicará en WordPress y actualizará la misma hoja principal con slug definitivo, URL, ID del post y extracto.
+
+## Desarrollo local
+
+1. Crea un archivo `.env` en la raíz con las mismas variables de entorno que los secretos.
+2. Instala dependencias: `pip install -r pipeline/requirements.txt`.
+3. Ejecuta `python pipeline/main.py`.
+
+## Manejo de errores
+
+- Las filas con duplicados (exactos o detectados semánticamente) se marcan como `duplicado` y se registran en los logs.
+- Si ocurre un error al generar contenido o publicar en WordPress, la fila se marca como `error` y el pipeline continúa con la siguiente entrada.
