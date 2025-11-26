@@ -64,21 +64,22 @@ Configura los siguientes secretos para conectar con tu Google Sheet:
 1. Sube este repositorio a GitHub.
 2. Configura todos los secretos mencionados en `Settings > Secrets and variables > Actions`.
 3. En GitHub, ve a la pestaña **Actions**, selecciona **Blog Pipeline** y pulsa **Run workflow**.
-4. El workflow instala dependencias y ejecuta `python pipeline/main.py`. Durante la corrida podrás ver logs en tiempo real que indican:
+4. El workflow instala dependencias y ejecuta `python -m pipeline.main`. Durante la corrida verás logs estructurados que indican:
   - cuántas filas se detectaron con `Ejecutar? = si`;
   - cuándo se detecta un duplicado exacto o semántico y la fila se omite;
   - cuándo se envía la solicitud a OpenAI y la publicación a WordPress;
   - cuándo se marca la fila como `hecho` y se actualizan las columnas `Slug`, `URL`, `Post_ID` y `Extracto_200` (si existen).
+  - al final verás un resumen con el total de filas procesadas, omitidas y con error.
 5. El script nunca escribe en `indice_contenido`; solo lo usa como referencia. Toda la retroalimentación (ID, URL, extracto) se vuelca en la hoja `contenidos_nuevos` para que la otra automatización continúe usando el índice sin interferencias.
 
 ## Desarrollo local
 
 1. Crea un archivo `.env` en la raíz con las mismas variables de entorno que los secretos.
 2. Instala dependencias: `pip install -r pipeline/requirements.txt`.
-3. Ejecuta `python pipeline/main.py`.
+3. Ejecuta `python -m pipeline.main` desde la raíz del repositorio (esto garantiza que Python reconozca el paquete `pipeline`).
 
 ## Manejo de errores
 
 - Las filas con duplicados (exactos o detectados semánticamente) se marcan como `duplicado` y se registran en los logs.
 - Si ocurre un error al generar contenido o publicar en WordPress, la fila se marca como `error` y el pipeline continúa con la siguiente entrada.
-- Si notas `ModuleNotFoundError: No module named 'pipeline'` asegúrate de haber incluido los archivos `__init__.py` en `pipeline/`, `pipeline/services/` y `pipeline/utils/` (ya están creados en este repositorio) y de ejecutar el script desde la raíz del proyecto (`python pipeline/main.py`).
+- Si notas `ModuleNotFoundError: No module named 'pipeline'`, ejecuta el script como módulo (`python -m pipeline.main`) o exporta `PYTHONPATH=.` antes de lanzarlo; asegúrate también de que existan los archivos `__init__.py` en `pipeline/`, `pipeline/services/` y `pipeline/utils/`.

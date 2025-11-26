@@ -34,4 +34,4 @@ jobs:
           WORDPRESS_AUTH_METHOD: ${{ secrets.WORDPRESS_AUTH_METHOD }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
         run: |
-          python pipeline/main.py
+          python -m pipeline.main

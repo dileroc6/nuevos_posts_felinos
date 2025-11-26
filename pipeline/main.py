@@ -34,11 +34,18 @@ def orchestrate() -> None:
     )
 
     rows = google_client.get_rows_to_process()
+    total_rows = len(rows)
+    logger.info("Filas detectadas con 'si': %s", total_rows)
     if not rows:
-        logger.info("No hay filas con estado 'si'.")
+        logger.info("No hay filas para procesar. Finalizando pipeline.")
         return
 
     index_records = google_client.get_index_records()
+    logger.info("Registros cargados desde indice_contenido: %s", len(index_records))
+
+    processed = 0
+    skipped = 0
+    errors = 0
 
     for row in rows:
         row_number = row["row_number"]
@@ -54,6 +61,7 @@ def orchestrate() -> None:
                     row_number,
                 )
                 google_client.log_duplicate(row_number)
+                skipped += 1
                 continue
 
             if content_generator.is_semantic_duplicate(row, index_records):
@@ -62,6 +70,7 @@ def orchestrate() -> None:
                     row_number,
                 )
                 google_client.log_duplicate(row_number)
+                skipped += 1
                 continue
 
             logger.info("Fila %s sin duplicados, generando contenido con OpenAI.", row_number)
@@ -105,11 +114,21 @@ def orchestrate() -> None:
                 "excerpt": excerpt,
             }
             index_records.append(index_entry)
+            processed += 1
 
         except Exception as exc:
             logger.exception("Error procesando fila %s: %s", row_number, exc)
             google_client.mark_status(row_number, "error")
+            errors += 1
             continue
+
+    logger.info(
+        "Resumen pipeline → procesadas: %s, omitidas: %s, errores: %s de un total de %s filas",
+        processed,
+        skipped,
+        errors,
+        total_rows,
+    )
 
 
 if __name__ == "__main__":
