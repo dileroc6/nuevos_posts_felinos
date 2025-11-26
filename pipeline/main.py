@@ -49,14 +49,24 @@ def orchestrate() -> None:
 
         try:
             if google_client.is_duplicate(title, keyword, slug, index_records):
+                logger.info(
+                    "Fila %s omitida: duplicado exacto detectado (título/keyword/slug).",
+                    row_number,
+                )
                 google_client.log_duplicate(row_number)
                 continue
 
             if content_generator.is_semantic_duplicate(row, index_records):
+                logger.info(
+                    "Fila %s omitida: duplicado semántico detectado por OpenAI.",
+                    row_number,
+                )
                 google_client.log_duplicate(row_number)
                 continue
 
+            logger.info("Fila %s sin duplicados, generando contenido con OpenAI.", row_number)
             content_payload = content_generator.generate(row)
+            logger.info("Contenido generado para fila %s, publicando en WordPress.", row_number)
             post_response = wordpress_client.publish_post(
                 title=content_payload.get("title", title),
                 content_html=content_payload.get("content_html", ""),
@@ -73,6 +83,7 @@ def orchestrate() -> None:
             excerpt = (content_payload.get("meta_description") or "")[:200]
 
             google_client.mark_status(row_number, "hecho")
+            logger.info("Fila %s marcada como 'hecho'. Actualizando columnas auxiliares.", row_number)
             google_client.update_main_row(
                 row_number,
                 {
@@ -82,6 +93,7 @@ def orchestrate() -> None:
                     "excerpt": excerpt,
                 },
             )
+            logger.info("Fila %s actualizada con slug=%s, post_id=%s", row_number, response_slug, post_id_str)
 
             index_entry: Dict[str, str] = {
                 "titulo": content_payload.get("title", title),

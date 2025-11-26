@@ -46,12 +46,30 @@ Configura los siguientes secretos para conectar con tu Google Sheet:
 - `GOOGLE_MAIN_SHEET_NAME`: nombre de la hoja principal (por defecto `contenidos`).
 - `GOOGLE_INDEX_SHEET_NAME`: nombre de la hoja índice (por defecto `indice_contenido`).
 
+## Flujo detallado del pipeline
+
+1. **Carga de entorno**: `pipeline/main.py` carga variables desde secretos o `.env` y prepara el logger.
+2. **Inicialización de servicios**: se crea un cliente de Google Sheets, el generador de contenido (`ContentGenerator`) con el modelo personalizado y el cliente de WordPress.
+3. **Lectura de hojas**: se obtienen las filas de `contenidos_nuevos` con `Ejecutar? = si` y el índice histórico solo para lectura.
+4. **Validación de duplicados**:
+  - Se revisa coincidencia exacta por título, keyword o slug/URL contra el índice.
+  - Si pasa, se envía una petición adicional al modelo de OpenAI para verificar duplicidad semántica.
+5. **Generación de contenido**: si la fila es válida, se construye un prompt enriquecido (SEO, EEAT, FAQs, prompts de imagen) y se solicita al modelo una respuesta estrictamente en JSON.
+6. **Publicación en WordPress**: con la respuesta se publica un post vía REST API (Application Password o JWT); el pipeline crea la categoría si es necesario y respeta el slug proporcionado.
+7. **Actualización de la hoja principal**: se marca la fila como `hecho` y se escriben `Slug`, `URL`, `Post_ID` y `Extracto_200` (si existen las columnas).
+8. **Manejo de errores**: cualquier excepción en la fila se registra, la fila se marca como `error` y el ciclo continúa con la siguiente.
+
 ## Ejecución manual del pipeline
 
 1. Sube este repositorio a GitHub.
 2. Configura todos los secretos mencionados en `Settings > Secrets and variables > Actions`.
 3. En GitHub, ve a la pestaña **Actions**, selecciona **Blog Pipeline** y pulsa **Run workflow**.
-4. El workflow ejecutará `python pipeline/main.py`, leerá las filas marcadas con `Ejecutar? = si`, validará duplicados con coincidencias exactas y comparación semántica vía OpenAI, generará el contenido, lo publicará en WordPress y actualizará la misma hoja principal con slug definitivo, URL, ID del post y extracto.
+4. El workflow instala dependencias y ejecuta `python pipeline/main.py`. Durante la corrida podrás ver logs en tiempo real que indican:
+  - cuántas filas se detectaron con `Ejecutar? = si`;
+  - cuándo se detecta un duplicado exacto o semántico y la fila se omite;
+  - cuándo se envía la solicitud a OpenAI y la publicación a WordPress;
+  - cuándo se marca la fila como `hecho` y se actualizan las columnas `Slug`, `URL`, `Post_ID` y `Extracto_200` (si existen).
+5. El script nunca escribe en `indice_contenido`; solo lo usa como referencia. Toda la retroalimentación (ID, URL, extracto) se vuelca en la hoja `contenidos_nuevos` para que la otra automatización continúe usando el índice sin interferencias.
 
 ## Desarrollo local
 
@@ -63,3 +81,4 @@ Configura los siguientes secretos para conectar con tu Google Sheet:
 
 - Las filas con duplicados (exactos o detectados semánticamente) se marcan como `duplicado` y se registran en los logs.
 - Si ocurre un error al generar contenido o publicar en WordPress, la fila se marca como `error` y el pipeline continúa con la siguiente entrada.
+- Si notas `ModuleNotFoundError: No module named 'pipeline'` asegúrate de haber incluido los archivos `__init__.py` en `pipeline/`, `pipeline/services/` y `pipeline/utils/` (ya están creados en este repositorio) y de ejecutar el script desde la raíz del proyecto (`python pipeline/main.py`).

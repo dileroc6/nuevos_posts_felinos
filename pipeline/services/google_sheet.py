@@ -270,6 +270,15 @@ class GoogleSheetClient:
         if not updates:
             return
 
+        self.logger.info(
+            "Actualizando fila %s en %s con columnas: %s",
+            row_number,
+            self.main_sheet_name,
+            ", ".join(
+                f"{item['range'].split('!')[-1]}={item['values'][0][0]}" for item in updates
+            ),
+        )
+
         body = {"valueInputOption": "RAW", "data": updates}
         try:
             (
